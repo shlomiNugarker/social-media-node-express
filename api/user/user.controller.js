@@ -21,7 +21,7 @@ async function getUser(req, res) {
 
 async function getUsers(req, res) {
   try {
-    const filterBy = req.query
+    const filterBy = req.validatedQuery || req.query
     const users = await userService.query(filterBy)
     res.send(users)
   } catch (err) {
@@ -42,8 +42,24 @@ async function deleteUser(req, res) {
 
 async function updateUser(req, res) {
   try {
-    const user = req.body
-    const savedUser = await userService.update(user)
+    const sessionUser = req.session?.user
+    const targetId = req.params.id
+    const isSelf = String(sessionUser._id) === String(targetId)
+    const isAdmin = !!sessionUser.isAdmin
+    if (!isSelf && !isAdmin) {
+      return res.status(403).send({ err: 'Forbidden' })
+    }
+
+    const incoming = { ...req.body, _id: targetId }
+
+    // Block privilege escalation + identity hijacking
+    if (!isAdmin) {
+      delete incoming.isAdmin
+    }
+    delete incoming.email
+    delete incoming.googleId
+
+    const savedUser = await userService.update(incoming)
     res.send(savedUser)
   } catch (err) {
     logger.error('Failed to update user', err)
@@ -57,7 +73,7 @@ async function addUser(req, res) {
     const savedUser = await userService.add(user)
     res.send(savedUser)
   } catch (err) {
-    logger.error('Failed to update user', err)
-    res.status(500).send({ err: 'Failed to update user' })
+    logger.error('Failed to add user', err)
+    res.status(500).send({ err: 'Failed to add user' })
   }
 }

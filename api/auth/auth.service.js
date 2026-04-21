@@ -1,33 +1,55 @@
-const bcrypt = require("bcrypt");
+const { OAuth2Client } = require("google-auth-library");
 const userService = require("../user/user.service");
 const logger = require("../../services/logger.service");
 
-module.exports = {
-  signup,
-  login,
-};
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_OAUTH_CLIENT_ID;
 
-async function login(username, password) {
-  logger.debug(`auth.service - login with username: ${username}`);
-
-  const user = await userService.getByUsername(username);
-  if (!user) return Promise.reject("Invalid username or password");
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return Promise.reject("Invalid username or password");
-
-  delete user.password;
-  return user;
+if (!GOOGLE_CLIENT_ID) {
+  logger.warn(
+    "GOOGLE_OAUTH_CLIENT_ID is not set — Google sign-in will fail until configured"
+  );
 }
 
-async function signup(username, password, fullname) {
-  const saltRounds = 10;
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-  logger.debug(
-    `auth.service - signup with username: ${username}, fullname: ${fullname}`
-  );
-  if (!username || !password || !fullname)
-    return Promise.reject("fullname, username and password are required!");
+module.exports = {
+  loginWithGoogle,
+};
 
-  const hash = await bcrypt.hash(password, saltRounds);
-  return userService.add({ username, password: hash, fullname });
+async function loginWithGoogle(idToken) {
+  if (!GOOGLE_CLIENT_ID) {
+    throw new Error("Google sign-in is not configured on the server");
+  }
+  if (!idToken || typeof idToken !== "string") {
+    throw new Error("Missing Google id_token");
+  }
+
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    payload = ticket.getPayload();
+  } catch (err) {
+    logger.warn("Google id_token verification failed: " + err.message);
+    throw new Error("Invalid Google credentials");
+  }
+
+  if (!payload || !payload.sub || !payload.email) {
+    throw new Error("Google profile is missing required fields");
+  }
+
+  if (payload.email_verified === false) {
+    throw new Error("Google email is not verified");
+  }
+
+  const user = await userService.upsertFromGoogle({
+    googleId: payload.sub,
+    email: payload.email,
+    fullname: payload.name || payload.email.split("@")[0],
+    imgUrl: payload.picture,
+  });
+
+  return user;
 }

@@ -11,7 +11,8 @@ module.exports = {
 // LIST
 async function getChats(req, res) {
   try {
-    const filterBy = req.query
+    const sessionUserId = req.session?.user?._id
+    const filterBy = { userId: sessionUserId }
     const chats = await chatService.query(filterBy)
     res.json(chats)
   } catch (err) {
@@ -24,7 +25,13 @@ async function getChats(req, res) {
 async function getChatById(req, res) {
   try {
     const { id } = req.params
+    const sessionUserId = String(req.session?.user?._id || '')
     const chat = await chatService.getById(id)
+    if (!chat) return res.status(404).send({ err: 'Chat not found' })
+    const inChat =
+      String(chat.userId) === sessionUserId ||
+      String(chat.userId2) === sessionUserId
+    if (!inChat) return res.status(403).send({ err: 'Forbidden' })
     res.json(chat)
   } catch (err) {
     logger.error('Failed to get chat', err)
@@ -32,10 +39,17 @@ async function getChatById(req, res) {
   }
 }
 
-// // CREATE
+// CREATE
 async function addChat(req, res) {
   try {
+    const sessionUserId = String(req.session?.user?._id || '')
     const chat = req.body
+    if (
+      String(chat.userId) !== sessionUserId &&
+      String(chat.userId2) !== sessionUserId
+    ) {
+      return res.status(403).send({ err: 'Forbidden' })
+    }
     const addedChat = await chatService.add(chat)
     res.json(addedChat)
   } catch (err) {
@@ -44,10 +58,17 @@ async function addChat(req, res) {
   }
 }
 
-// // UPDATE
+// UPDATE
 async function updateChat(req, res) {
   try {
+    const sessionUserId = String(req.session?.user?._id || '')
     const chat = req.body
+    const existing = await chatService.getById(chat._id)
+    if (!existing) return res.status(404).send({ err: 'Chat not found' })
+    const inChat =
+      String(existing.userId) === sessionUserId ||
+      String(existing.userId2) === sessionUserId
+    if (!inChat) return res.status(403).send({ err: 'Forbidden' })
     const updatedChat = await chatService.update(chat)
     res.json(updatedChat)
   } catch (err) {

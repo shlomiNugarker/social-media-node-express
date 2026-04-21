@@ -1,24 +1,31 @@
 const express = require("express");
 
+const { requireAuth } = require("../../middlewares/requireAuth.middleware");
+const { validate } = require("../../middlewares/validate.middleware");
 const {
-  // getComments,
-  // getCommentsByPostId,
+  addCommentSchema,
+  updateCommentSchema,
+  removeCommentSchema,
+} = require("../../validators/comment.schemas");
+const {
   addComment,
   updateComment,
   removeComment,
 } = require("./comment.controller");
 const router = express.Router();
 
-// middleware that is specific to this router
-// router.use(requireAuth)
-
-// router.get('/', log, getComments)
-// router.get('/:id', getCommentsByPostId)
-router.post("/", addComment);
-router.put("/:id", updateComment);
-router.delete("/:id", removeComment);
-// router.post('/', requireAuth, requireAdmin, addComment)
-// router.put('/:id', requireAuth, requireAdmin, updateComment)
-// router.delete('/:id', requireAuth, requireAdmin, removeComment)
+router.post("/", requireAuth, validate({ body: addCommentSchema }), addComment);
+router.put(
+  "/:id",
+  requireAuth,
+  validate({ body: updateCommentSchema }),
+  updateComment
+);
+router.delete(
+  "/:id",
+  requireAuth,
+  validate({ body: removeCommentSchema }),
+  removeComment
+);
 
 module.exports = router;

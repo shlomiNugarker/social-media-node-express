@@ -2,45 +2,48 @@ const express = require("express");
 const cloudinary = require("cloudinary").v2;
 const vision = require("@google-cloud/vision");
 
+const { requireAuth } = require("../../middlewares/requireAuth.middleware");
+const logger = require("../../services/logger.service");
+
 cloudinary.config({
-  // eslint-disable-next-line no-undef
   cloud_name: process.env.CLOUD_NAME,
-  // eslint-disable-next-line no-undef
   api_key: process.env.CLOUD_API_KEY,
-  // eslint-disable-next-line no-undef
   api_secret: process.env.CLOUD_API_SECRET,
 });
 
-const client = new vision.ImageAnnotatorClient({
-  credentials: {
-    // eslint-disable-next-line no-undef
-    private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    // eslint-disable-next-line no-undef
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-  },
-  // eslint-disable-next-line no-undef
-  projectId: process.env.GOOGLE_PROJECT_ID,
-});
+const visionClient = process.env.GOOGLE_PRIVATE_KEY
+  ? new vision.ImageAnnotatorClient({
+      credentials: {
+        private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+        client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      },
+      projectId: process.env.GOOGLE_PROJECT_ID,
+    })
+  : null;
+
+const UPLOAD_PRESET = process.env.CLOUD_UPLOAD_PRESET || "social_n_shlomi";
+const MAX_BASE64_BYTES = 25 * 1024 * 1024; // ~25MB raw upload payload cap
 
 const router = express.Router();
 
-const analyzeImage = async (imageBase64) => {
-  try {
-    const cleanedBase64 = imageBase64.split(",")[1];
+router.use(requireAuth);
 
-    const [result] = await client.safeSearchDetection({
+const analyzeImage = async (imageBase64) => {
+  if (!visionClient) return null;
+  try {
+    const cleanedBase64 = imageBase64.split(",")[1] || imageBase64;
+    const [result] = await visionClient.safeSearchDetection({
       image: { content: cleanedBase64 },
     });
-
-    const detections = result.safeSearchAnnotation;
+    const detections = result.safeSearchAnnotation || {};
     return {
       adult: detections.adult,
       violence: detections.violence,
       racy: detections.racy,
     };
-  } catch (error) {
-    console.error("Error analyzing image:", error.message);
-    throw error;
+  } catch (err) {
+    logger.error("Vision safeSearch failed: " + err.message);
+    return null;
   }
 };
 
@@ -48,34 +51,44 @@ router.post("/upload", async (req, res) => {
   try {
     const { file, resourceType } = req.body;
 
-    if (!file) {
-      console.error("No file provided");
-      return res.status(400).send("No file provided");
+    if (!file || typeof file !== "string") {
+      return res.status(400).send({ err: "No file provided" });
     }
 
-    const analysis = await analyzeImage(file);
-
-    if (
-      analysis.adult === "LIKELY" ||
-      analysis.adult === "VERY_LIKELY" ||
-      analysis.violence === "LIKELY" ||
-      analysis.violence === "VERY_LIKELY"
-    ) {
-      return res.status(400).send("The image contains inappropriate content.");
+    if (file.length > MAX_BASE64_BYTES) {
+      return res.status(413).send({ err: "File too large" });
     }
 
-    const uploadPreset = "social_n_shlomi";
+    const safeResourceType = ["image", "video", "auto"].includes(resourceType)
+      ? resourceType
+      : "auto";
+
+    const isImage = safeResourceType === "image" || safeResourceType === "auto";
+    if (isImage) {
+      const analysis = await analyzeImage(file);
+      if (
+        analysis &&
+        (analysis.adult === "LIKELY" ||
+          analysis.adult === "VERY_LIKELY" ||
+          analysis.violence === "LIKELY" ||
+          analysis.violence === "VERY_LIKELY")
+      ) {
+        return res
+          .status(400)
+          .send({ err: "The image contains inappropriate content." });
+      }
+    }
 
     const result = await cloudinary.uploader.upload(file, {
-      resource_type: resourceType || "auto",
-      upload_preset: uploadPreset,
+      resource_type: safeResourceType,
+      upload_preset: UPLOAD_PRESET,
       moderation: "webpurify",
     });
 
     res.json(result);
   } catch (err) {
-    console.error("Error uploading file:", err.message);
-    res.status(500).send("Failed to upload file");
+    logger.error("Error uploading file: " + err.message);
+    res.status(500).send({ err: "Failed to upload file" });
   }
 });
 

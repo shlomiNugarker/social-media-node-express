@@ -4,19 +4,15 @@ const ObjectId = require("mongodb").ObjectId;
 
 module.exports = { query, add, update, getLength };
 
-async function query(filterBy) {
+async function query(filterBy = {}) {
   try {
     const criteria = _buildCriteria(filterBy);
-
     const collection = await dbService.getCollection("activity");
-
-    var activitys = await collection
+    const activities = await collection
       .find(criteria)
-      .sort({
-        createdAt: -1,
-      })
+      .sort({ createdAt: -1 })
       .toArray();
-    return activitys;
+    return activities;
   } catch (err) {
     logger.error("cannot find activities", err);
     throw err;
@@ -34,47 +30,41 @@ async function add(activity) {
     await collection.insertOne(activityToAdd);
     return activityToAdd;
   } catch (err) {
-    logger.error("cannot insert activitys", err);
+    logger.error("cannot insert activity", err);
     throw err;
   }
 }
 
 async function update(activity) {
   try {
-    var id = ObjectId(activity._id);
+    const id = ObjectId(activity._id);
     delete activity._id;
     const collection = await dbService.getCollection("activity");
     await collection.updateOne({ _id: id }, { $set: { ...activity } });
-    const addedActivity = { ...activity, _id: id };
-    return addedActivity;
+    return { ...activity, _id: id };
   } catch (err) {
     logger.error(`cannot update activity ${activity._id}`, err);
     throw err;
   }
 }
 
-async function getLength() {
+async function getLength(filterBy = {}) {
   try {
-    const criteria = {};
-
+    const criteria = _buildCriteria(filterBy);
     const collection = await dbService.getCollection("activity");
-
-    var activities = await collection
-      .find(criteria)
-      .sort({ createdAt: -1 })
-      .toArray();
-    return activities.length;
+    return await collection.countDocuments(criteria);
   } catch (err) {
-    logger.error("cannot find activities", err);
+    logger.error("cannot count activities", err);
     throw err;
   }
 }
 
 function _buildCriteria(filterBy) {
   const criteria = {};
+  const and = [];
 
   if (filterBy.txt) {
-    const regex = new RegExp(filterBy.txt, "i");
+    const regex = new RegExp(_escapeRegex(filterBy.txt), "i");
     criteria.$or = [
       { body: { $regex: regex } },
       { fullname: { $regex: regex } },
@@ -83,23 +73,26 @@ function _buildCriteria(filterBy) {
   }
 
   if (filterBy.userId) {
-    criteria.$or = [{ createdTo: filterBy.userId }];
+    and.push({ createdTo: filterBy.userId });
   }
 
-  if (filterBy._id) {
-    criteria._id = ObjectId(filterBy._id);
+  if (filterBy.createdTo) {
+    and.push({ createdTo: filterBy.createdTo });
   }
 
-  if (filterBy.position) {
-    criteria.$and = [
-      { "position.lat": { $exists: true } },
-      { "position.lng": { $exists: true } },
-    ];
+  if (filterBy.createdBy) {
+    and.push({ createdBy: filterBy.createdBy });
   }
 
-  if (filterBy.inStock) {
-    criteria.inStock = { $eq: JSON.parse(filterBy.inStock) };
+  if (typeof filterBy.isRead === "boolean") {
+    and.push({ isRead: filterBy.isRead });
   }
+
+  if (and.length) criteria.$and = and;
 
   return criteria;
+}
+
+function _escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

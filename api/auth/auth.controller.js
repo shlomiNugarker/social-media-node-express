@@ -2,47 +2,30 @@ const authService = require("./auth.service");
 const logger = require("../../services/logger.service");
 
 module.exports = {
-  login,
-  signup,
+  loginWithGoogle,
   logout,
 };
 
-async function login(req, res) {
-  const { username, password } = req.body;
+async function loginWithGoogle(req, res) {
   try {
-    const user = await authService.login(username, password);
+    const { credential } = req.body;
+    const user = await authService.loginWithGoogle(credential);
     req.session.user = user;
     res.json(user);
   } catch (err) {
-    logger.error("Failed to Login " + err);
-    res.status(401).send({ err: "Failed to Login" });
-  }
-}
-
-async function signup(req, res) {
-  try {
-    const { username, password, fullname } = req.body;
-    const account = await authService.signup(username, password, fullname);
-    logger.debug(
-      `auth.route - new account created with username: ` +
-        JSON.stringify(account.username)
-    );
-    const user = await authService.login(username, password);
-    req.session.user = user;
-    res.json(user);
-  } catch (err) {
-    logger.error("Failed to signup " + err);
-    res.status(500).send({ err: "Failed to signup" });
+    logger.warn("Google sign-in failed: " + err.message);
+    res.status(401).send({ err: err.message || "Google sign-in failed" });
   }
 }
 
 async function logout(req, res) {
   try {
-    req.session.destroy();
-    res.send({ msg: "Logged out successfully" });
+    req.session.destroy(() => {
+      res.clearCookie("connect.sid");
+      res.send({ msg: "Logged out successfully" });
+    });
   } catch (err) {
-    console.log(err);
-
+    logger.error("Failed to logout: " + err.message);
     res.status(500).send({ err: "Failed to logout" });
   }
 }

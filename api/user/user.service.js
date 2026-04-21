@@ -2,25 +2,25 @@ const dbService = require("../../services/db.service");
 const logger = require("../../services/logger.service");
 const ObjectId = require("mongodb").ObjectId;
 
+const DEFAULT_AVATAR =
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQVe0cFaZ9e5Hm9X-tdWRLSvoZqg2bjemBABA&usqp=CAU";
+
 module.exports = {
   query,
   getById,
-  getByUsername,
+  getByEmail,
+  getByGoogleId,
   remove,
   update,
   add,
+  upsertFromGoogle,
 };
 
 async function query(filterBy = {}) {
   try {
     const criteria = _buildCriteria(filterBy);
     const collection = await dbService.getCollection("user");
-    var users = await collection.find(criteria).toArray();
-
-    users = users.map((user) => {
-      delete user.password;
-      return user;
-    });
+    const users = await collection.find(criteria).toArray();
     return users;
   } catch (err) {
     logger.error("cannot find users", err);
@@ -31,21 +31,31 @@ async function query(filterBy = {}) {
 async function getById(userId) {
   try {
     const collection = await dbService.getCollection("user");
-    const user = await collection.findOne({ _id: ObjectId(userId) });
-    delete user.password;
-    return user;
+    return await collection.findOne({ _id: ObjectId(userId) });
   } catch (err) {
     logger.error(`while finding user ${userId}`, err);
     throw err;
   }
 }
-async function getByUsername(username) {
+
+async function getByEmail(email) {
+  if (!email) return null;
   try {
     const collection = await dbService.getCollection("user");
-    const user = await collection.findOne({ username });
-    return user;
+    return await collection.findOne({ email: String(email).toLowerCase() });
   } catch (err) {
-    logger.error(`while finding user ${username}`, err);
+    logger.error(`while finding user by email`, err);
+    throw err;
+  }
+}
+
+async function getByGoogleId(googleId) {
+  if (!googleId) return null;
+  try {
+    const collection = await dbService.getCollection("user");
+    return await collection.findOne({ googleId: String(googleId) });
+  } catch (err) {
+    logger.error(`while finding user by googleId`, err);
     throw err;
   }
 }
@@ -62,10 +72,7 @@ async function remove(userId) {
 
 async function update(user) {
   try {
-    const userToSave = {
-      ...user,
-      _id: ObjectId(user._id),
-    };
+    const userToSave = { ...user, _id: ObjectId(user._id) };
     const collection = await dbService.getCollection("user");
     await collection.updateOne({ _id: userToSave._id }, { $set: userToSave });
     return userToSave;
@@ -79,31 +86,32 @@ async function add(user) {
   try {
     const collection = await dbService.getCollection("user");
 
-    const existingUser = await collection.findOne({ username: user.username });
-    if (existingUser) {
-      throw new Error("Username already exists");
+    const email = user.email ? String(user.email).toLowerCase() : null;
+    if (email) {
+      const existing = await collection.findOne({ email });
+      if (existing) throw new Error("Email already exists");
     }
 
     const userToAdd = {
-      username: user.username,
-      password: user.password,
-      profession: null,
       fullname: user.fullname,
+      email,
+      googleId: user.googleId ? String(user.googleId) : null,
+      profession: user.profession ?? null,
       isAdmin: user.isAdmin || false,
-      age: null,
-      createdAt: new Date().getTime(),
+      age: user.age ?? null,
+      gender: user.gender ?? null,
+      phone: user.phone ?? null,
+      birthDate: user.birthDate ?? null,
+      bio: user.bio ?? null,
+      bg: user.bg ?? "",
+      position: user.position ?? null,
+      imgUrl: user.imgUrl || DEFAULT_AVATAR,
       connections: [],
       following: [],
       followers: [],
-      gender: null,
-      phone: null,
-      birthDate: null,
-      email: null,
-      bg: "",
-      position: null,
-      imgUrl:
-        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQVe0cFaZ9e5Hm9X-tdWRLSvoZqg2bjemBABA&usqp=CAU",
+      createdAt: Date.now(),
     };
+
     await collection.insertOne(userToAdd);
     return userToAdd;
   } catch (err) {
@@ -112,19 +120,48 @@ async function add(user) {
   }
 }
 
+async function upsertFromGoogle({ googleId, email, fullname, imgUrl }) {
+  if (!googleId || !email) {
+    throw new Error("googleId and email are required");
+  }
+
+  const collection = await dbService.getCollection("user");
+  const normalizedEmail = String(email).toLowerCase();
+
+  // 1) Match by googleId — most stable identifier
+  let user = await collection.findOne({ googleId: String(googleId) });
+
+  // 2) Otherwise link an existing account by email
+  if (!user) {
+    user = await collection.findOne({ email: normalizedEmail });
+    if (user) {
+      await collection.updateOne(
+        { _id: user._id },
+        { $set: { googleId: String(googleId) } }
+      );
+      user.googleId = String(googleId);
+    }
+  }
+
+  // 3) Create a new account
+  if (!user) {
+    user = await add({
+      fullname,
+      email: normalizedEmail,
+      googleId,
+      imgUrl,
+    });
+  }
+
+  return user;
+}
+
 function _buildCriteria(filterBy) {
   const criteria = {};
 
   if (filterBy.txt) {
-    const txtCriteria = { $regex: filterBy.txt, $options: "i" };
-    criteria.$or = [
-      {
-        username: txtCriteria,
-      },
-      {
-        fullname: txtCriteria,
-      },
-    ];
+    const txtCriteria = { $regex: _escapeRegex(filterBy.txt), $options: "i" };
+    criteria.$or = [{ fullname: txtCriteria }, { email: txtCriteria }];
   }
 
   if (filterBy.position) {
@@ -135,4 +172,8 @@ function _buildCriteria(filterBy) {
   }
 
   return criteria;
+}
+
+function _escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

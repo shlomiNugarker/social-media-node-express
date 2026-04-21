@@ -14,7 +14,6 @@
  */
 
 require("dotenv").config();
-const bcrypt = require("bcrypt");
 const { MongoClient, ObjectId } = require("mongodb");
 
 const DB_URI = process.env.DB_URI;
@@ -318,11 +317,8 @@ async function main() {
   // ---------- 2. CREATE USERS ----------
   const now = Date.now();
   const userCol = db.collection("user");
-  const hash = await bcrypt.hash("1234", 10);
 
   const mainUser = {
-    username: "test",
-    password: hash,
     fullname: "שלומי בודק",
     profession: "מפתח Full-Stack",
     bio: "בודק את המערכת יום יום — מחפש באגים, דברים יפים ומקומות חדשים לטייל בהם.",
@@ -339,17 +335,16 @@ async function main() {
     position: { lat: 32.0853, lng: 34.7818 },
     imgUrl: "https://i.pravatar.cc/300?img=7",
     isAdmin: false,
+    googleId: null,
   };
   const mainRes = await userCol.insertOne(mainUser);
   mainUser._id = mainRes.insertedId;
-  console.log(`  ✓ main user: username=test password=1234 (id=${mainUser._id})`);
+  console.log(`  ✓ main user: ${mainUser.email} (id=${mainUser._id})`);
 
   const seedUsers = [];
   for (let i = 0; i < 5; i++) {
     const fullname = `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`;
     const user = {
-      username: `user${i + 1}`,
-      password: hash,
       fullname,
       profession: pick(PROFESSIONS),
       bio: pick(BIOS),
@@ -371,12 +366,13 @@ async function main() {
         : null,
       imgUrl: AVATARS[i % AVATARS.length],
       isAdmin: false,
+      googleId: null,
     };
     const r = await userCol.insertOne(user);
     user._id = r.insertedId;
     seedUsers.push(user);
   }
-  console.log(`  ✓ created ${seedUsers.length} seed users (user1..user5, pw=1234)`);
+  console.log(`  ✓ created ${seedUsers.length} seed users`);
 
   // ---------- 3. FOLLOW RELATIONS ----------
   // main follows 4 of 5, and 3 of 5 follow main back
@@ -625,9 +621,12 @@ async function main() {
   await client.close();
   console.log("");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  console.log("✓ DONE. Login with:");
-  console.log("   username: test");
-  console.log("   password: 1234");
+  console.log("✓ DONE. Sign in with Google using one of the seed emails:");
+  console.log("   test@travelsdin.dev (main user)");
+  console.log("   user1@travelsdin.dev … user5@travelsdin.dev");
+  console.log("");
+  console.log("On first Google sign-in, the matching account will be linked");
+  console.log("by email and the googleId will be stored.");
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 }
 

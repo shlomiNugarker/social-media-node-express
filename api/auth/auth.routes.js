@@ -1,10 +1,11 @@
-const express = require('express')
-const { login, signup, logout } = require('./auth.controller')
+const express = require("express");
+const { loginWithGoogle, logout } = require("./auth.controller");
+const { validate } = require("../../middlewares/validate.middleware");
+const { googleLoginSchema } = require("../../validators/auth.schemas");
 
-const router = express.Router()
+const router = express.Router();
 
-router.post('/login', login)
-router.post('/signup', signup)
-router.post('/logout', logout)
+router.post("/google", validate({ body: googleLoginSchema }), loginWithGoogle);
+router.post("/logout", logout);
 
-module.exports = router
+module.exports = router;

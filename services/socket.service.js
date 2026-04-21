@@ -4,26 +4,52 @@ let gIo = null;
 
 let connectedUsers = [];
 
-function connectSockets(http) {
+function connectSockets(http, session) {
+  const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   gIo = require("socket.io")(http, {
     cors: {
-      origin: "*",
+      origin: allowedOrigins,
+      credentials: true,
     },
   });
+
+  const wrapSession = session
+    ? (socket, next) => session(socket.request, {}, next)
+    : (socket, next) => next();
+
+  gIo.use(wrapSession);
+
+  gIo.use((socket, next) => {
+    const user = socket.request?.session?.user;
+    if (!user) {
+      return next(new Error("Unauthorized"));
+    }
+    socket.userId = user._id;
+    next();
+  });
+
   gIo.on("connection", (socket) => {
-    console.log("New socket", socket.id);
+    logger.debug("New socket " + socket.id + " user " + socket.userId);
+
+    if (socket.userId && !connectedUsers.includes(socket.userId)) {
+      connectedUsers.push(socket.userId);
+    }
 
     socket.emit("add-connected-users", connectedUsers);
 
     socket.on("disconnect", () => {
-      console.log("Socket disconnected: ", socket.id);
-      connectedUsers = connectedUsers.filter((u) => u.userId !== socket.userId);
+      logger.debug("Socket disconnected: " + socket.id);
+      connectedUsers = connectedUsers.filter((id) => id !== socket.userId);
     });
 
     socket.on("setUserSocket", async (userId) => {
-      socket.userId = userId;
-
-      if (!connectedUsers.includes(userId)) connectedUsers.push(userId);
+      if (userId && userId === socket.userId && !connectedUsers.includes(userId)) {
+        connectedUsers.push(userId);
+      }
     });
 
     socket.on("post-updated", (post) => {
