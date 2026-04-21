@@ -44,12 +44,15 @@ const BIOS = [
 ];
 
 const POST_CONTENTS = [
+  // Israel
   {
     title: "שקיעה בים המלח",
     body: "היום תפסנו את השקיעה הכי יפה שראיתי השנה — הצבעים פשוט לא נגמרים. ממליץ לכל מי שלא היה בזמן האחרון לעלות לאזור.",
     img: "https://picsum.photos/seed/deadsea/800/520",
     lat: 31.5497,
     lng: 35.4663,
+    country: "ישראל",
+    category: "nature",
   },
   {
     title: "בוקר בתל אביב",
@@ -57,6 +60,8 @@ const POST_CONTENTS = [
     img: "https://picsum.photos/seed/telaviv/800/520",
     lat: 32.0568,
     lng: 34.7699,
+    country: "ישראל",
+    category: "city",
   },
   {
     title: "טיול במכתש רמון",
@@ -64,41 +69,8 @@ const POST_CONTENTS = [
     img: "https://picsum.photos/seed/ramon/800/520",
     lat: 30.6125,
     lng: 34.8011,
-  },
-  {
-    title: "סטארטאפ חדש בדרך",
-    body: "אחרי חודשים של עבודה שקטה, אפשר סוף סוף לספר שיצאנו לדרך. פרטים בהמשך 🤫",
-    img: null,
-    lat: null,
-    lng: null,
-  },
-  {
-    title: "מתכון של סבתא",
-    body: "העוגיות של סבתא נפתרו סוף סוף — גיליתי ששכחתי את התבלין הכי חשוב. אם אתם אוהבים מאפים, אני ממליץ.",
-    img: "https://picsum.photos/seed/cookies/800/520",
-    lat: null,
-    lng: null,
-  },
-  {
-    title: "כנס טכנולוגיה השבוע",
-    body: "שני ימים של הרצאות מעולות, אנשים שמבינים עניין, וחוויות שרוצים לקחת חזרה למשרד. מי עוד היה שם?",
-    img: "https://picsum.photos/seed/conference/800/520",
-    lat: 32.1093,
-    lng: 34.8555,
-  },
-  {
-    title: "ערב אצלי בבית",
-    body: "אוכלים, מוזיקה טובה, חברים ותיקים. אין הרבה דברים שמסדרים את הראש כמו ערב כזה.",
-    img: "https://picsum.photos/seed/dinner/800/520",
-    lat: null,
-    lng: null,
-  },
-  {
-    title: "ספר חדש בידיים",
-    body: "התחלתי אתמול ובקושי הצלחתי לעצור. אם יש לכם המלצות לספרים באותו סגנון — אשמח.",
-    img: null,
-    lat: null,
-    lng: null,
+    country: "ישראל",
+    category: "hiking",
   },
   {
     title: "שבת שלום מירושלים",
@@ -106,6 +78,8 @@ const POST_CONTENTS = [
     img: "https://picsum.photos/seed/jerusalem/800/520",
     lat: 31.7767,
     lng: 35.2345,
+    country: "ישראל",
+    category: "culture",
   },
   {
     title: "חיפה מהכרמל",
@@ -113,13 +87,169 @@ const POST_CONTENTS = [
     img: "https://picsum.photos/seed/haifa/800/520",
     lat: 32.7956,
     lng: 34.9833,
+    country: "ישראל",
+    category: "nature",
   },
   {
-    title: "אילת בסוף השבוע",
-    body: "ים חם, שוניות צבעוניות ואנשים כייפיים. קצת רחוק אבל שווה כל ק״מ.",
+    title: "צלילה באילת",
+    body: "ים חם, שוניות צבעוניות וסנפיריות. גם אחרי 20 צלילות, באילת יש משהו ייחודי.",
     img: "https://picsum.photos/seed/eilat/800/520",
     lat: 29.5581,
     lng: 34.9482,
+    country: "ישראל",
+    category: "beach",
+  },
+
+  // Europe
+  {
+    title: "קרואסון מושלם בפריז",
+    body: "שכונה שקטה ב-Le Marais, מאפייה קטנה, וקרואסון שהוא חוויה. זו הסיבה לחזור כל פעם מחדש.",
+    img: "https://picsum.photos/seed/paris/800/520",
+    lat: 48.8566,
+    lng: 2.3522,
+    country: "צרפת",
+    category: "food",
+  },
+  {
+    title: "לילה במדריד",
+    body: "טאפאס בגראן ויה, רחוב שמתנגן ובירה מקומית. ספרד בלילה זו חוויה שלא שוכחים.",
+    img: "https://picsum.photos/seed/madrid/800/520",
+    lat: 40.4168,
+    lng: -3.7038,
+    country: "ספרד",
+    category: "nightlife",
+  },
+  {
+    title: "גאודי בברצלונה",
+    body: "Sagrada Familia סוף סוף ראיתי בעיניים. אין תמונה שמתקרבת למה שעובר עליך שם.",
+    img: "https://picsum.photos/seed/barcelona/800/520",
+    lat: 41.3851,
+    lng: 2.1734,
+    country: "ספרד",
+    category: "culture",
+  },
+  {
+    title: "פיצה ברומא",
+    body: "פיצה דקה, בזיליקום טרי, ושמן זית שלא ידעתי שקיים. טרסטוורה בטקס.",
+    img: "https://picsum.photos/seed/rome/800/520",
+    lat: 41.9028,
+    lng: 12.4964,
+    country: "איטליה",
+    category: "food",
+  },
+  {
+    title: "סרנדה בוונציה",
+    body: "גונדולה, תעלה, ואיש עם אקורדיון. קיטש — אבל מהסוג שאתה זוכר כל החיים.",
+    img: "https://picsum.photos/seed/venice/800/520",
+    lat: 45.4408,
+    lng: 12.3155,
+    country: "איטליה",
+    category: "culture",
+  },
+  {
+    title: "הרי האלפים בסוויס",
+    body: "רכבל לאינטרלאקן, מסלול של 4 שעות, ושלג שמגיע עד לברכיים. לא קל — שווה.",
+    img: "https://picsum.photos/seed/swiss/800/520",
+    lat: 46.6863,
+    lng: 7.8632,
+    country: "שווייץ",
+    category: "adventure",
+  },
+  {
+    title: "בירה באוקטוברפסט",
+    body: "מינכן במלואה — דיריגנלים, פרצלים ענקיים ואווירה שאי אפשר לתאר. הייתי שוב מחר.",
+    img: "https://picsum.photos/seed/munich/800/520",
+    lat: 48.1351,
+    lng: 11.5820,
+    country: "גרמניה",
+    category: "nightlife",
+  },
+  {
+    title: "Big Ben בלונדון",
+    body: "יום מושלם — מוזיאון הברזל, שייט בתמזה, ופיש אנד צ׳יפס בפאב קלאסי.",
+    img: "https://picsum.photos/seed/london/800/520",
+    lat: 51.5007,
+    lng: -0.1246,
+    country: "בריטניה",
+    category: "city",
+  },
+
+  // North America
+  {
+    title: "Times Square בלילה",
+    body: "רעש, אורות, אנשים — ניו יורק במיטבה. גם אחרי הביקור החמישי, זה עדיין מטורף.",
+    img: "https://picsum.photos/seed/nyc/800/520",
+    lat: 40.7580,
+    lng: -73.9855,
+    country: "ארה״ב",
+    category: "city",
+  },
+  {
+    title: "גרנד קניון",
+    body: "סאנרייז על שולי הקניון. 20 דקות של שקט מוחלט, ואחר כך הצבעים מתפוצצים. חוויה רוחנית.",
+    img: "https://picsum.photos/seed/grandcanyon/800/520",
+    lat: 36.1069,
+    lng: -112.1129,
+    country: "ארה״ב",
+    category: "nature",
+  },
+
+  // Asia
+  {
+    title: "מקדש בטוקיו",
+    body: "Senso-ji בבוקר — כמעט ריק, ריח של קטורת ופעמונים של הטקס הראשון. מצב שונה לגמרי.",
+    img: "https://picsum.photos/seed/tokyo/800/520",
+    lat: 35.7148,
+    lng: 139.7967,
+    country: "יפן",
+    category: "culture",
+  },
+  {
+    title: "סושי בשוק צוקיג׳י",
+    body: "חמישה בבוקר בשוק, ואני אוכל את הסושי הכי טרי בחיי. ישר מהסירה.",
+    img: "https://picsum.photos/seed/tsukiji/800/520",
+    lat: 35.6654,
+    lng: 139.7707,
+    country: "יפן",
+    category: "food",
+  },
+  {
+    title: "חוף בבאלי",
+    body: "Uluwatu — גלים מושלמים לגולשים, שקיעה שעוצרת את הנשימה. בלי מילים.",
+    img: "https://picsum.photos/seed/bali/800/520",
+    lat: -8.8290,
+    lng: 115.0849,
+    country: "אינדונזיה",
+    category: "beach",
+  },
+  {
+    title: "שוק לילה בבנגקוק",
+    body: "פאד תאי על מקל, מיצי פירות טריים ופעילות שלא נגמרת. להפחית מהסחלב היה קל מדי.",
+    img: "https://picsum.photos/seed/bangkok/800/520",
+    lat: 13.7563,
+    lng: 100.5018,
+    country: "תאילנד",
+    category: "food",
+  },
+
+  // Misc / no-position (still valid posts)
+  {
+    title: "ספר חדש בידיים",
+    body: "התחלתי אתמול ובקושי הצלחתי לעצור. אם יש לכם המלצות לספרים באותו סגנון — אשמח.",
+    img: null,
+    lat: null,
+    lng: null,
+    country: null,
+    category: null,
+  },
+  {
+    title: "פרויקט חדש יוצא לדרך",
+    body: "חודשים של תכנון — סוף סוף יוצאים. פרטים בקרוב 🤫",
+    img: null,
+    lat: null,
+    lng: null,
+    country: null,
+    category: null,
   },
 ];
 
@@ -363,6 +493,8 @@ async function main() {
         content.lat && content.lng
           ? { lat: content.lat, lng: content.lng }
           : null,
+      country: content.country || undefined,
+      category: content.category || undefined,
     };
 
     const r = await postCol.insertOne(post);

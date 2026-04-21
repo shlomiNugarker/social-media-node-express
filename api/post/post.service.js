@@ -37,17 +37,30 @@ async function query(filterBy) {
         sort.createdAt = filterBy.sort;
       }
 
-      if (filterBy.position) {
+      // Map/geo queries return all matching results (no pagination)
+      if (filterBy.position || filterBy.bbox || filterBy.near) {
         limit = Infinity;
         endIndex = 0;
       }
 
-      const posts = await collection
-        .find(criteria)
-        .sort(sort)
-        .limit(limit)
-        .skip(endIndex)
-        .toArray();
+      let cursor = collection.find(criteria).sort(sort);
+      if (limit !== Infinity) {
+        cursor = cursor.limit(limit).skip(endIndex);
+      }
+      let posts = await cursor.toArray();
+
+      // `near` = radius filter computed in-memory (MongoDB $near needs geo index)
+      if (filterBy.near) {
+        const [lat, lng] = String(filterBy.near).split(",").map(Number);
+        const radiusKm = Number(filterBy.radius) || 50;
+        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+          posts = posts.filter((p) => {
+            if (!p.position) return false;
+            return _haversine(lat, lng, p.position.lat, p.position.lng) <= radiusKm;
+          });
+        }
+      }
+
       return posts;
     }
   } catch (err) {
@@ -103,7 +116,10 @@ async function add(post) {
     position,
     videoBodyUrl,
     fullname,
+    imgUrl,
     link,
+    country,
+    category,
   } = post;
   try {
     const postToAdd = {
@@ -119,7 +135,10 @@ async function add(post) {
       position: position || null,
       videoBodyUrl,
       fullname,
+      imgUrl,
       link,
+      country,
+      category,
     };
 
     const collection = await dbService.getCollection("post");
@@ -147,13 +166,15 @@ async function update(post) {
 
 function _buildCriteria(filterBy) {
   const criteria = {};
+  const and = [];
 
   if (filterBy.txt) {
-    const regex = new RegExp(filterBy.txt, "i");
+    const regex = new RegExp(_escapeRegex(filterBy.txt), "i");
     criteria.$or = [
       { body: { $regex: regex } },
       { fullname: { $regex: regex } },
       { title: { $regex: regex } },
+      { country: { $regex: regex } },
     ];
   }
 
@@ -165,16 +186,66 @@ function _buildCriteria(filterBy) {
     criteria._id = ObjectId(filterBy._id);
   }
 
-  if (filterBy.position) {
-    criteria.$and = [
-      { "position.lat": { $exists: true } },
-      { "position.lng": { $exists: true } },
-    ];
+  if (filterBy.category) {
+    // supports comma-separated list: "beach,hiking"
+    const list = String(filterBy.category)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length === 1) criteria.category = list[0];
+    else if (list.length > 1) criteria.category = { $in: list };
   }
 
-  if (filterBy.inStock) {
-    criteria.inStock = { $eq: JSON.parse(filterBy.inStock) };
+  if (filterBy.country) {
+    criteria.country = filterBy.country;
   }
+
+  if (filterBy.dateFrom) {
+    and.push({ createdAt: { $gte: Number(filterBy.dateFrom) } });
+  }
+  if (filterBy.dateTo) {
+    and.push({ createdAt: { $lte: Number(filterBy.dateTo) } });
+  }
+
+  // any of: position | bbox | near implies geo-tagged post
+  if (filterBy.position || filterBy.bbox || filterBy.near) {
+    and.push(
+      { "position.lat": { $exists: true } },
+      { "position.lng": { $exists: true } }
+    );
+  }
+
+  // bbox = "minLng,minLat,maxLng,maxLat"
+  if (filterBy.bbox) {
+    const [minLng, minLat, maxLng, maxLat] = String(filterBy.bbox)
+      .split(",")
+      .map(Number);
+    if (
+      [minLng, minLat, maxLng, maxLat].every((n) => !Number.isNaN(n))
+    ) {
+      and.push(
+        { "position.lat": { $gte: minLat, $lte: maxLat } },
+        { "position.lng": { $gte: minLng, $lte: maxLng } }
+      );
+    }
+  }
+
+  if (and.length) criteria.$and = and;
 
   return criteria;
+}
+
+function _escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function _haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371; // km
+  const toRad = (x) => (x * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
 }
