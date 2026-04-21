@@ -54,25 +54,60 @@ async function add(chat) {
   const { userId, userId2, messages, createdAt, users } = chat;
   try {
     const collection = await dbService.getCollection("chat");
-    
-    // Check if chat between these users already exists (in either direction)
-    const existingChat = await collection.findOne({
-      $or: [
-        { userId: userId, userId2: userId2 },
-        { userId: userId2, userId2: userId }
-      ]
-    });
 
-    if (existingChat) {
-      // If chat exists, return it instead of creating a new one
-      return existingChat;
+    // Normalize ids to strings so legacy rows stored as ObjectId won't bypass the check.
+    const a = String(userId);
+    const b = String(userId2);
+
+    // Find all chats between these two users (handles both orderings + legacy dup rows).
+    const duplicates = await collection
+      .find({
+        $or: [
+          { userId: a, userId2: b },
+          { userId: b, userId2: a },
+        ],
+      })
+      .sort({ createdAt: 1 })
+      .toArray();
+
+    if (duplicates.length > 0) {
+      const [canonical, ...extras] = duplicates;
+
+      // Merge any stray duplicates into the canonical chat, then remove them.
+      if (extras.length > 0) {
+        const mergedMessages = [
+          ...(canonical.messages ?? []),
+          ...extras.flatMap((d) => d.messages ?? []),
+        ].sort((m1, m2) => (m1.createdAt ?? 0) - (m2.createdAt ?? 0));
+
+        // de-dup messages by _id if any
+        const seen = new Set();
+        const uniqueMessages = [];
+        for (const m of mergedMessages) {
+          const key = m && m._id ? String(m._id) : `${m.userId}:${m.createdAt}:${m.txt}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          uniqueMessages.push(m);
+        }
+
+        await collection.updateOne(
+          { _id: canonical._id },
+          { $set: { messages: uniqueMessages } }
+        );
+        await collection.deleteMany({
+          _id: { $in: extras.map((d) => d._id) },
+        });
+        return { ...canonical, messages: uniqueMessages };
+      }
+
+      return canonical;
     }
-    
+
     const chatToAdd = {
       messages,
       createdAt,
-      userId,
-      userId2,
+      userId: a,
+      userId2: b,
       users,
     };
 

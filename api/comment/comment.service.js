@@ -10,12 +10,14 @@ module.exports = {
 };
 
 async function add(comment) {
-  const { txt, postId, userId } = comment;
+  const { txt, postId, userId, fullname, imgUrl } = comment;
   try {
     const commentToAdd = {
       _id: utilService.makeId(24),
-      userId: ObjectId(userId),
+      userId,
       postId: ObjectId(postId),
+      fullname,
+      imgUrl,
       txt,
       reactions: [],
       replies: [],
