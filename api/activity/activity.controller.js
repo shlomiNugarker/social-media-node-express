@@ -1,5 +1,6 @@
 const logger = require('../../services/logger.service')
 const activityService = require('./activity.service')
+const { emitToUser } = require('../../services/socket.service')
 
 module.exports = {
   getActivties,
@@ -34,6 +35,16 @@ async function addActivity(req, res) {
     const sessionUserId = String(req.session?.user?._id || '')
     const activity = { ...req.body, createdBy: sessionUserId }
     const addedActivity = await activityService.add(activity)
+
+    // Push the new activity to the recipient in real-time (best effort).
+    if (addedActivity?.createdTo) {
+      emitToUser({
+        type: 'new-activity',
+        data: addedActivity,
+        userId: String(addedActivity.createdTo),
+      }).catch(() => {})
+    }
+
     res.json(addedActivity)
   } catch (err) {
     logger.error('Failed to add activity', err)
