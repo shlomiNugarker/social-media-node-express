@@ -16,6 +16,8 @@ const {
   updatePost,
   removePost,
   getPostsLength,
+  reactToPost,
+  unreactToPost,
 } = require("./post.controller");
 const router = express.Router();
 
@@ -30,5 +32,17 @@ router.put(
   updatePost
 );
 router.delete("/:id", requireAuth, validate({ params: idParam }), removePost);
+router.post(
+  "/:id/react",
+  requireAuth,
+  validate({ params: idParam }),
+  reactToPost
+);
+router.delete(
+  "/:id/react",
+  requireAuth,
+  validate({ params: idParam }),
+  unreactToPost
+);
 
 module.exports = router;

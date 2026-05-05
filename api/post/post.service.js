@@ -9,6 +9,8 @@ module.exports = {
   add,
   update,
   getLength,
+  react,
+  unreact,
 };
 
 async function query(filterBy) {
@@ -160,6 +162,43 @@ async function update(post) {
     return addedPost;
   } catch (err) {
     logger.error(`cannot update post ${post._id}`, err);
+    throw err;
+  }
+}
+
+async function react(postId, reaction) {
+  try {
+    const collection = await dbService.getCollection("post");
+    const _id = ObjectId(postId);
+
+    // Remove any existing reaction by this user, then add the fresh one.
+    await collection.updateOne(
+      { _id },
+      { $pull: { reactions: { userId: String(reaction.userId) } } }
+    );
+    await collection.updateOne(
+      { _id },
+      { $push: { reactions: reaction } }
+    );
+
+    return await collection.findOne({ _id });
+  } catch (err) {
+    logger.error(`cannot react to post ${postId}`, err);
+    throw err;
+  }
+}
+
+async function unreact(postId, userId) {
+  try {
+    const collection = await dbService.getCollection("post");
+    const _id = ObjectId(postId);
+    await collection.updateOne(
+      { _id },
+      { $pull: { reactions: { userId: String(userId) } } }
+    );
+    return await collection.findOne({ _id });
+  } catch (err) {
+    logger.error(`cannot unreact post ${postId}`, err);
     throw err;
   }
 }

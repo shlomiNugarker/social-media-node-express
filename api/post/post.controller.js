@@ -8,6 +8,8 @@ module.exports = {
   updatePost,
   removePost,
   getPostsLength,
+  reactToPost,
+  unreactToPost,
 }
 
 // LIST
@@ -100,5 +102,37 @@ async function removePost(req, res) {
   } catch (err) {
     logger.error('Failed to remove post', err)
     res.status(500).send({ err: 'Failed to remove post' })
+  }
+}
+
+// REACT (like)
+async function reactToPost(req, res) {
+  try {
+    const sessionUser = req.session?.user
+    const { id } = req.params
+    const reaction = {
+      userId: String(sessionUser._id),
+      fullname: sessionUser.fullname,
+      imgUrl: sessionUser.imgUrl,
+      type: req.body?.type ?? 'like',
+    }
+    const updated = await postService.react(id, reaction)
+    res.json(updated)
+  } catch (err) {
+    logger.error('Failed to react to post: ' + err.message)
+    res.status(500).send({ err: 'Failed to react to post' })
+  }
+}
+
+// UNREACT
+async function unreactToPost(req, res) {
+  try {
+    const sessionUser = req.session?.user
+    const { id } = req.params
+    const updated = await postService.unreact(id, String(sessionUser._id))
+    res.json(updated)
+  } catch (err) {
+    logger.error('Failed to unreact: ' + err.message)
+    res.status(500).send({ err: 'Failed to unreact' })
   }
 }
