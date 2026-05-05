@@ -69,10 +69,20 @@ async function updateChat(req, res) {
       String(existing.userId) === sessionUserId ||
       String(existing.userId2) === sessionUserId
     if (!inChat) return res.status(403).send({ err: 'Forbidden' })
-    const updatedChat = await chatService.update(chat)
+
+    // Preserve immutable fields — frontend can only mutate the messages array.
+    const safe = {
+      _id: chat._id,
+      messages: chat.messages,
+      userId: existing.userId,
+      userId2: existing.userId2,
+      createdAt: existing.createdAt ?? Date.now(),
+      users: existing.users ?? chat.users,
+    }
+    const updatedChat = await chatService.update(safe)
     res.json(updatedChat)
   } catch (err) {
-    logger.error('Failed to update chat', err)
+    logger.error('Failed to update chat: ' + err.message)
     res.status(500).send({ err: 'Failed to update chat' })
   }
 }
