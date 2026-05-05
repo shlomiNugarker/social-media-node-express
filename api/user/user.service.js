@@ -14,6 +14,8 @@ module.exports = {
   update,
   add,
   upsertFromGoogle,
+  follow,
+  unfollow,
 };
 
 async function query(filterBy = {}) {
@@ -118,6 +120,57 @@ async function add(user) {
     logger.error("cannot insert user", err);
     throw err;
   }
+}
+
+async function follow(meId, targetId) {
+  if (String(meId) === String(targetId)) {
+    throw new Error("Cannot follow yourself");
+  }
+  const collection = await dbService.getCollection("user");
+  const meObjectId = ObjectId(meId);
+  const targetObjectId = ObjectId(targetId);
+
+  const target = await collection.findOne({ _id: targetObjectId });
+  if (!target) throw new Error("Target user not found");
+
+  await collection.updateOne(
+    { _id: meObjectId },
+    { $addToSet: { following: String(targetId) } }
+  );
+  await collection.updateOne(
+    { _id: targetObjectId },
+    { $addToSet: { followers: String(meId) } }
+  );
+
+  const [me, freshTarget] = await Promise.all([
+    collection.findOne({ _id: meObjectId }),
+    collection.findOne({ _id: targetObjectId }),
+  ]);
+  return { me, target: freshTarget };
+}
+
+async function unfollow(meId, targetId) {
+  if (String(meId) === String(targetId)) {
+    throw new Error("Cannot unfollow yourself");
+  }
+  const collection = await dbService.getCollection("user");
+  const meObjectId = ObjectId(meId);
+  const targetObjectId = ObjectId(targetId);
+
+  await collection.updateOne(
+    { _id: meObjectId },
+    { $pull: { following: String(targetId) } }
+  );
+  await collection.updateOne(
+    { _id: targetObjectId },
+    { $pull: { followers: String(meId) } }
+  );
+
+  const [me, freshTarget] = await Promise.all([
+    collection.findOne({ _id: meObjectId }),
+    collection.findOne({ _id: targetObjectId }),
+  ]);
+  return { me, target: freshTarget };
 }
 
 async function upsertFromGoogle({ googleId, email, fullname, imgUrl }) {

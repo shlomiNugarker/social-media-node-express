@@ -7,6 +7,8 @@ module.exports = {
   deleteUser,
   updateUser,
   addUser,
+  followUser,
+  unfollowUser,
 }
 
 async function getUser(req, res) {
@@ -64,6 +66,36 @@ async function updateUser(req, res) {
   } catch (err) {
     logger.error('Failed to update user', err)
     res.status(500).send({ err: 'Failed to update user' })
+  }
+}
+
+async function followUser(req, res) {
+  try {
+    const meId = String(req.session?.user?._id || '')
+    const targetId = req.params.id
+    const result = await userService.follow(meId, targetId)
+    if (req.session?.user) {
+      req.session.user = { ...req.session.user, following: result.me.following }
+    }
+    res.json(result)
+  } catch (err) {
+    logger.warn('Failed to follow: ' + err.message)
+    res.status(400).send({ err: err.message || 'Failed to follow' })
+  }
+}
+
+async function unfollowUser(req, res) {
+  try {
+    const meId = String(req.session?.user?._id || '')
+    const targetId = req.params.id
+    const result = await userService.unfollow(meId, targetId)
+    if (req.session?.user) {
+      req.session.user = { ...req.session.user, following: result.me.following }
+    }
+    res.json(result)
+  } catch (err) {
+    logger.warn('Failed to unfollow: ' + err.message)
+    res.status(400).send({ err: err.message || 'Failed to unfollow' })
   }
 }
 
