@@ -14,7 +14,17 @@ const position = z
   .nullable()
   .optional();
 
-const url = z.string().url().max(2000).optional().nullable();
+// Accepts a URL, an empty string (treated as cleared), null, or undefined.
+// Empty strings are normalized to null so the DB stores a single canonical
+// "no value" representation.
+const url = z
+  .union([
+    z.literal(""),
+    z.string().url().max(2000),
+    z.null(),
+  ])
+  .optional()
+  .transform((v) => (v === "" ? null : v));
 
 const safeText = (max) =>
   z
